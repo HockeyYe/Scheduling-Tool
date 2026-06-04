@@ -1,0 +1,965 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>咖啡店排班工具 HTML 原型</title>
+    <style>
+      :root {
+        --bg: #f8fafc;
+        --surface: #ffffff;
+        --surface-soft: #f9fafb;
+        --ink: #0f172a;
+        --muted: #64748b;
+        --line: #e2e8f0;
+        --accent: hsl(136 12% 12%);
+        --accent-soft: hsl(136 36% 94%);
+        --success: #e7f6ec;
+        --success-ink: #176b45;
+        --info: #e0f2fe;
+        --info-ink: #075985;
+        --warning: #fef3c7;
+        --warning-ink: #92400e;
+        --danger: #fee2e2;
+        --danger-ink: #b91c1c;
+        --sidebar-width: 200px;
+        --radius: 10px;
+        --button-radius: 8px;
+        --button-height: 38px;
+        --space: 20px;
+        --panel-padding: 16px;
+        --row-height: 46px;
+        --cell-pad: 10px;
+        --badge-pad-x: 10px;
+        --font-scale: 1.1;
+        --shadow: 0 21px 65px rgba(15, 23, 42, 0.13);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--ink);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", "Microsoft YaHei", sans-serif;
+        font-size: calc(14px * var(--font-scale));
+        letter-spacing: 0;
+      }
+
+      button,
+      input,
+      select {
+        font: inherit;
+      }
+
+      button {
+        cursor: pointer;
+      }
+
+      .app {
+        min-height: 100vh;
+        display: grid;
+        grid-template-columns: var(--sidebar-width) minmax(820px, 1fr);
+      }
+
+      .sidebar {
+        background: var(--surface);
+        border-right: 1px solid var(--line);
+        padding: 18px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .brand-mark {
+        width: 34px;
+        height: 34px;
+        border-radius: var(--button-radius);
+        display: grid;
+        place-items: center;
+        background: var(--accent);
+        color: #fff;
+        font-weight: 800;
+      }
+
+      .brand-title {
+        font-weight: 800;
+        line-height: 1.15;
+      }
+
+      .brand-subtitle,
+      .muted {
+        color: var(--muted);
+        font-size: calc(12px * var(--font-scale));
+      }
+
+      .nav {
+        display: grid;
+        gap: 8px;
+      }
+
+      .nav button,
+      .button,
+      .icon-button,
+      .tab-button {
+        border: 1px solid var(--line);
+        border-radius: var(--button-radius);
+        min-height: var(--button-height);
+        background: var(--surface);
+        color: var(--ink);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 0 12px;
+        white-space: nowrap;
+      }
+
+      .nav button {
+        justify-content: flex-start;
+      }
+
+      .nav button.active,
+      .button.primary,
+      .tab-button.active {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+
+      .button:hover,
+      .icon-button:hover,
+      .nav button:hover {
+        border-color: #cbd5e1;
+      }
+
+      .icon-button {
+        width: var(--button-height);
+        padding: 0;
+      }
+
+      .sidebar-bottom {
+        margin-top: auto;
+        display: grid;
+        gap: 10px;
+      }
+
+      .metric {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface-soft);
+        padding: var(--panel-padding);
+      }
+
+      .metric strong {
+        display: block;
+        font-size: calc(22px * var(--font-scale));
+      }
+
+      .workspace {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .topbar {
+        min-height: 74px;
+        border-bottom: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.86);
+        backdrop-filter: blur(12px);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 14px 22px;
+        position: sticky;
+        top: 0;
+        z-index: 4;
+      }
+
+      .topbar h1 {
+        margin: 0;
+        font-size: calc(22px * var(--font-scale));
+        line-height: 1.2;
+      }
+
+      .topbar-meta,
+      .actions,
+      .row,
+      .tabs {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 4px var(--badge-pad-x);
+        min-height: 24px;
+        background: #f3f4f6;
+        color: #374151;
+        font-size: calc(12px * var(--font-scale));
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .badge.success {
+        background: var(--success);
+        color: var(--success-ink);
+      }
+
+      .badge.info {
+        background: var(--info);
+        color: var(--info-ink);
+      }
+
+      .badge.warning {
+        background: var(--warning);
+        color: var(--warning-ink);
+      }
+
+      .badge.danger {
+        background: var(--danger);
+        color: var(--danger-ink);
+      }
+
+      .content {
+        padding: var(--space) 22px 40px;
+      }
+
+      .page {
+        display: none;
+      }
+
+      .page.active {
+        display: block;
+      }
+
+      .layout-3 {
+        display: grid;
+        grid-template-columns: 250px minmax(620px, 1fr) 230px;
+        gap: var(--space);
+        align-items: start;
+      }
+
+      .layout-2 {
+        display: grid;
+        grid-template-columns: minmax(720px, 1fr) 300px;
+        gap: var(--space);
+        align-items: start;
+      }
+
+      .panel {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+        box-shadow: var(--shadow);
+        min-width: 0;
+      }
+
+      .panel-header {
+        min-height: 58px;
+        border-bottom: 1px solid var(--line);
+        padding: var(--panel-padding);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .panel-title {
+        margin: 0;
+        font-size: calc(15px * var(--font-scale));
+        font-weight: 800;
+      }
+
+      .panel-body {
+        padding: var(--panel-padding);
+      }
+
+      .employee-list,
+      .stack {
+        display: grid;
+        gap: 10px;
+      }
+
+      .employee {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 10px;
+        background: var(--surface);
+        display: grid;
+        gap: 8px;
+        width: 100%;
+        text-align: left;
+      }
+
+      .employee.active {
+        border-color: var(--accent);
+        background: var(--accent-soft);
+      }
+
+      .employee strong {
+        display: block;
+      }
+
+      .progress {
+        height: 7px;
+        border-radius: 999px;
+        background: #e5e7eb;
+        overflow: hidden;
+      }
+
+      .progress span {
+        display: block;
+        height: 100%;
+        border-radius: inherit;
+        background: var(--accent);
+      }
+
+      .table-wrap {
+        overflow: auto;
+      }
+
+      .matrix {
+        min-width: 720px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        overflow: hidden;
+        display: grid;
+        background: var(--line);
+        gap: 1px;
+      }
+
+      .availability-matrix {
+        grid-template-columns: 84px repeat(5, minmax(116px, 1fr));
+      }
+
+      .schedule-matrix {
+        grid-template-columns: 84px repeat(5, minmax(132px, 1fr));
+      }
+
+      .staffing-matrix {
+        grid-template-columns: 128px repeat(5, minmax(96px, 1fr));
+      }
+
+      .th,
+      .time,
+      .cell,
+      .schedule-cell,
+      .staff-cell {
+        min-height: var(--row-height);
+        background: var(--surface);
+        padding: var(--cell-pad);
+      }
+
+      .th,
+      .time {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f8fafc;
+        color: var(--muted);
+        font-size: calc(12px * var(--font-scale));
+        font-weight: 800;
+      }
+
+      .cell {
+        border: 0;
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+      }
+
+      .schedule-cell,
+      .staff-cell {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+
+      .schedule-cell.shortage {
+        background: #fff7ed;
+        box-shadow: inset 0 0 0 2px rgba(185, 28, 28, 0.16);
+      }
+
+      .field {
+        display: grid;
+        gap: 6px;
+      }
+
+      .field label {
+        color: var(--muted);
+        font-size: calc(12px * var(--font-scale));
+      }
+
+      .field input,
+      .field select {
+        min-height: var(--button-height);
+        border: 1px solid var(--line);
+        border-radius: var(--button-radius);
+        padding: 0 10px;
+        background: var(--surface);
+        color: var(--ink);
+      }
+
+      .rule-list {
+        display: grid;
+        gap: 12px;
+        margin-top: 14px;
+      }
+
+      .rule-row {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 12px;
+        display: grid;
+        grid-template-columns: minmax(220px, 1.1fr) minmax(220px, 0.9fr) minmax(120px, 150px) var(--button-height);
+        gap: 10px;
+        align-items: end;
+        background: var(--surface);
+      }
+
+      .rule-row .field,
+      .rule-row input,
+      .rule-row select {
+        min-width: 0;
+      }
+
+      .rule-row .icon-button {
+        justify-self: end;
+      }
+
+      .weight-row {
+        display: grid;
+        grid-template-columns: 110px 1fr 42px;
+        align-items: center;
+        gap: 10px;
+        min-height: 38px;
+      }
+
+      input[type="range"] {
+        width: 100%;
+        accent-color: var(--accent);
+      }
+
+      .stepper {
+        display: grid;
+        gap: 6px;
+        width: 100%;
+      }
+
+      .toast {
+        position: fixed;
+        left: calc(var(--sidebar-width) + 24px);
+        bottom: 22px;
+        background: var(--accent);
+        color: #fff;
+        padding: 11px 14px;
+        border-radius: var(--button-radius);
+        box-shadow: var(--shadow);
+        transform: translateY(12px);
+        opacity: 0;
+        pointer-events: none;
+        transition: 0.2s ease;
+        z-index: 10;
+      }
+
+      .toast.show {
+        transform: translateY(0);
+        opacity: 1;
+      }
+
+      @media (max-width: 1240px) {
+        .layout-3,
+        .layout-2 {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 1040px) {
+        .rule-row {
+          grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr);
+        }
+
+        .rule-row .icon-button {
+          justify-self: start;
+        }
+      }
+
+      @media (max-width: 840px) {
+        .app {
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .sidebar-bottom {
+          display: none;
+        }
+
+        .nav {
+          grid-auto-flow: column;
+          overflow: auto;
+        }
+
+        .topbar {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .rule-row {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">排</div>
+          <div>
+            <div class="brand-title">咖啡店排班</div>
+            <div class="brand-subtitle">可调参数原型</div>
+          </div>
+        </div>
+
+        <nav class="nav" aria-label="主导航">
+          <button class="active" data-page="availability">员工与可用时间</button>
+          <button data-page="rules">规则设置</button>
+          <button data-page="results">排班结果</button>
+        </nav>
+
+        <div class="sidebar-bottom">
+          <div class="metric">
+            <strong>10 人</strong>
+            <span class="muted">本周店员</span>
+          </div>
+          <div class="metric">
+            <strong>85 格</strong>
+            <span class="muted">30 分钟粒度</span>
+          </div>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <h1 id="pageTitle">员工与可用时间</h1>
+            <div class="topbar-meta">
+              <span class="muted">周一至周五 08:00-16:30</span>
+              <span class="badge success">已自动保存</span>
+              <span class="badge warning" id="shortageBadge">2 个缺人时段</span>
+            </div>
+          </div>
+          <div class="actions">
+            <button class="button" data-toast="已模拟导入项目 JSON">导入</button>
+            <button class="button" data-toast="已模拟导出项目 JSON">导出 JSON</button>
+            <button class="button primary" id="generateBtn">生成排班</button>
+          </div>
+        </header>
+
+        <section class="content">
+          <div class="page active" id="availability">
+            <div class="layout-3">
+              <section class="panel">
+                <div class="panel-header">
+                  <div>
+                    <h2 class="panel-title">员工列表</h2>
+                    <div class="muted">目标工时与当前排班</div>
+                  </div>
+                  <button class="icon-button" data-toast="已模拟添加员工">+</button>
+                </div>
+                <div class="panel-body">
+                  <div class="employee-list" id="employeeList"></div>
+                </div>
+              </section>
+
+              <section class="panel">
+                <div class="panel-header">
+                  <div>
+                    <h2 class="panel-title">可用时间录入</h2>
+                    <div class="muted" id="activeEmployee">当前员工：林小满</div>
+                  </div>
+                  <div class="tabs" id="statusTabs">
+                    <button class="tab-button active" data-status="available">可排</button>
+                    <button class="tab-button" data-status="busy">忙碌</button>
+                    <button class="tab-button" data-status="banned">Ban</button>
+                    <button class="tab-button" data-status="low">不偏好</button>
+                  </div>
+                </div>
+                <div class="panel-body">
+                  <div class="table-wrap">
+                    <div class="matrix availability-matrix" id="availabilityMatrix"></div>
+                  </div>
+                </div>
+              </section>
+
+              <aside class="panel">
+                <div class="panel-header">
+                  <div>
+                    <h2 class="panel-title">员工详情</h2>
+                    <div class="muted">业务字段也可调</div>
+                  </div>
+                </div>
+                <div class="panel-body stack">
+                  <div class="row" style="justify-content: space-between">
+                    <span class="muted">目标工时</span>
+                    <strong>12h</strong>
+                  </div>
+                  <input type="range" min="4" max="24" value="12" />
+                  <div class="row" style="justify-content: space-between">
+                    <span class="muted">已排工时</span>
+                    <strong>10.5h</strong>
+                  </div>
+                  <input type="range" min="0" max="24" step="0.5" value="10.5" />
+                  <span class="badge info">偏好 10:00 后排班</span>
+                  <span class="badge warning">周三下午可接受</span>
+                  <p class="muted">点击时间格可用当前状态改色；整体视觉已按截图中的参数固化。</p>
+                </div>
+              </aside>
+            </div>
+          </div>
+
+          <div class="page" id="rules">
+            <div class="layout-2">
+              <section class="panel">
+                <div class="panel-header">
+                  <div>
+                    <h2 class="panel-title">人力需求设置</h2>
+                    <div class="muted">默认规则可按周一至周五和时段覆盖</div>
+                  </div>
+                  <button class="button" data-toast="已模拟新增规则">新增规则</button>
+                </div>
+                <div class="panel-body">
+                  <div class="table-wrap">
+                    <div class="matrix staffing-matrix" id="staffingMatrix"></div>
+                  </div>
+
+                  <div class="rule-list">
+                    <div class="rule-row">
+                      <div class="field">
+                        <label>时段</label>
+                        <select><option>08:00-10:00</option></select>
+                      </div>
+                      <div class="field">
+                        <label>适用日期</label>
+                        <select><option>周一至周五</option></select>
+                      </div>
+                      <div class="field">
+                        <label>人数</label>
+                        <input value="2 人" />
+                      </div>
+                      <button class="icon-button">-</button>
+                    </div>
+                    <div class="rule-row">
+                      <div class="field">
+                        <label>时段</label>
+                        <select><option>12:00-14:00</option></select>
+                      </div>
+                      <div class="field">
+                        <label>适用日期</label>
+                        <select><option>周一至周五</option></select>
+                      </div>
+                      <div class="field">
+                        <label>人数</label>
+                        <input value="2 人" />
+                      </div>
+                      <button class="icon-button">-</button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <aside class="panel">
+                <div class="panel-header">
+                  <div>
+                    <h2 class="panel-title">算法参数</h2>
+                    <div class="muted">硬约束固定，软约束可调</div>
+                  </div>
+                </div>
+                <div class="panel-body stack">
+                  <span class="badge">最短连续上班 1 小时</span>
+                  <div class="weight-row">
+                    <span class="muted">缺人惩罚</span>
+                    <input type="range" value="95" />
+                    <strong>95</strong>
+                  </div>
+                  <div class="weight-row">
+                    <span class="muted">公平性</span>
+                    <input type="range" value="72" />
+                    <strong>72</strong>
+                  </div>
+                  <div class="weight-row">
+                    <span class="muted">偏好冲突</span>
+                    <input type="range" value="58" />
+                    <strong>58</strong>
+                  </div>
+                  <div class="weight-row">
+                    <span class="muted">连续班次</span>
+                    <input type="range" value="64" />
+                    <strong>64</strong>
+                  </div>
+                  <p class="muted">缺人惩罚权重最高，生成结果优先保证营业时段覆盖。</p>
+                </div>
+              </aside>
+            </div>
+          </div>
+
+          <div class="page" id="results">
+            <div class="layout-2">
+              <section class="panel">
+                <div class="panel-header">
+                  <div>
+                    <h2 class="panel-title">周视图班表</h2>
+                    <div class="muted">缺人时段高亮，可移除或替换员工</div>
+                  </div>
+                  <div class="actions">
+                    <button class="button" data-toast="已模拟导出 Excel">Excel</button>
+                    <button class="button" data-toast="已模拟导出图片">图片</button>
+                  </div>
+                </div>
+                <div class="panel-body">
+                  <div class="table-wrap">
+                    <div class="matrix schedule-matrix" id="scheduleMatrix"></div>
+                  </div>
+                </div>
+              </section>
+
+              <aside class="panel">
+                <div class="panel-header">
+                  <div>
+                    <h2 class="panel-title">统计与缺人</h2>
+                    <div class="muted">调整后实时重新计算</div>
+                  </div>
+                </div>
+                <div class="panel-body stack">
+                  <div class="metric">
+                    <strong>林小满 10.5h</strong>
+                    <div class="progress"><span style="width: 88%"></span></div>
+                  </div>
+                  <div class="metric">
+                    <strong>周予安 9h</strong>
+                    <div class="progress"><span style="width: 75%"></span></div>
+                  </div>
+                  <div id="shortageList" class="stack"></div>
+                  <button class="button" data-toast="已模拟手动添加员工">手动添加员工</button>
+                </div>
+              </aside>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+      const days = ["周一", "周二", "周三", "周四", "周五"];
+      const times = [
+        "08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
+        "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30", "16:00"
+      ];
+      const employees = [
+        ["林小满", 12, 10.5],
+        ["周予安", 12, 9],
+        ["陈一诺", 10, 8.5],
+        ["许知夏", 8, 7],
+        ["沈嘉禾", 10, 8]
+      ];
+      const statusMap = {
+        available: ["可排", "success"],
+        busy: ["忙碌", "info"],
+        banned: ["Ban", "danger"],
+        low: ["不偏好", "warning"]
+      };
+      const staffing = [2, 1, 2, 1];
+      let activeStatus = "available";
+      let activeEmployee = 0;
+
+      function showToast(message) {
+        const toast = document.getElementById("toast");
+        toast.textContent = message;
+        toast.classList.add("show");
+        clearTimeout(showToast.timer);
+        showToast.timer = setTimeout(() => toast.classList.remove("show"), 1600);
+      }
+
+      function badge(label, tone = "") {
+        return `<span class="badge ${tone}">${label}</span>`;
+      }
+
+      function renderEmployees() {
+        document.getElementById("employeeList").innerHTML = employees
+          .map(([name, target, hours], index) => {
+            const pct = Math.min(100, Math.round((hours / target) * 100));
+            return `
+              <button class="employee ${index === activeEmployee ? "active" : ""}" data-employee="${index}">
+                <span class="row" style="justify-content: space-between">
+                  <strong>${name}</strong>
+                  <span class="muted">${hours}/${target}h</span>
+                </span>
+                <span class="progress"><span style="width:${pct}%"></span></span>
+                <span class="muted">${pct}% 目标完成</span>
+              </button>
+            `;
+          })
+          .join("");
+        document.getElementById("activeEmployee").textContent = `当前员工：${employees[activeEmployee][0]}`;
+      }
+
+      function renderAvailability() {
+        const el = document.getElementById("availabilityMatrix");
+        el.innerHTML = `<div class="th">时间</div>${days.map((day) => `<div class="th">${day}</div>`).join("")}`;
+        times.forEach((time, row) => {
+          el.insertAdjacentHTML("beforeend", `<div class="time">${time}</div>`);
+          days.forEach((_, col) => {
+            const statuses = ["available", "available", "busy", "available", "low", "banned"];
+            const state = statuses[(row + col + activeEmployee) % statuses.length];
+            const [label, tone] = statusMap[state];
+            el.insertAdjacentHTML(
+              "beforeend",
+              `<button class="cell" data-cell="availability">${badge(label, tone)}</button>`
+            );
+          });
+        });
+      }
+
+      function segmentIndex(row) {
+        const hour = Number(times[row].slice(0, 2));
+        if (hour < 10) return 0;
+        if (hour < 12) return 1;
+        if (hour < 14) return 2;
+        return 3;
+      }
+
+      function renderStaffing() {
+        const el = document.getElementById("staffingMatrix");
+        const segments = ["08:00-10:00", "10:00-12:00", "12:00-14:00", "14:00-16:30"];
+        el.innerHTML = `<div class="th">时段</div>${days.map((day) => `<div class="th">${day}</div>`).join("")}`;
+        segments.forEach((segment, index) => {
+          el.insertAdjacentHTML("beforeend", `<div class="time">${segment}</div>`);
+          days.forEach((day) => {
+            el.insertAdjacentHTML(
+              "beforeend",
+              `<div class="staff-cell">
+                <div class="stepper">
+                  <span>${day} ${staffing[index]} 人</span>
+                  <input class="staff-slider" type="range" min="0" max="4" value="${staffing[index]}" data-segment="${index}" />
+                </div>
+              </div>`
+            );
+          });
+        });
+      }
+
+      function peopleFor(row, col) {
+        const required = staffing[segmentIndex(row)];
+        const planned = (col === 2 && row === 8) || (col === 4 && row === 15) ? Math.max(0, required - 1) : required;
+        return Array.from({ length: planned }, (_, index) => employees[(row + col + index) % employees.length][0]);
+      }
+
+      function renderSchedule() {
+        const el = document.getElementById("scheduleMatrix");
+        const shortageItems = [];
+        el.innerHTML = `<div class="th">时间</div>${days.map((day) => `<div class="th">${day}</div>`).join("")}`;
+        times.forEach((time, row) => {
+          el.insertAdjacentHTML("beforeend", `<div class="time">${time}</div>`);
+          days.forEach((day, col) => {
+            const required = staffing[segmentIndex(row)];
+            const people = peopleFor(row, col);
+            const shortage = people.length < required;
+            if (shortage) shortageItems.push(`${day} ${time} 缺 ${required - people.length} 人`);
+            el.insertAdjacentHTML(
+              "beforeend",
+              `<div class="schedule-cell ${shortage ? "shortage" : ""}">
+                ${people.map((person, i) => badge(person, i % 2 ? "info" : "success")).join("")}
+                ${shortage ? badge(`缺 ${required - people.length} 人`, "danger") : ""}
+              </div>`
+            );
+          });
+        });
+        document.getElementById("shortageBadge").textContent = `${shortageItems.length} 个缺人时段`;
+        document.getElementById("shortageList").innerHTML = shortageItems
+          .slice(0, 5)
+          .map((item) => `<span class="badge danger">${item}</span>`)
+          .join("");
+      }
+
+      function setPage(id) {
+        document.querySelectorAll(".page").forEach((page) => page.classList.toggle("active", page.id === id));
+        document.querySelectorAll(".nav button").forEach((button) => button.classList.toggle("active", button.dataset.page === id));
+        const titles = { availability: "员工与可用时间", rules: "规则设置", results: "排班结果" };
+        document.getElementById("pageTitle").textContent = titles[id];
+      }
+
+      document.querySelectorAll(".nav button").forEach((button) => {
+        button.addEventListener("click", () => setPage(button.dataset.page));
+      });
+
+      document.querySelectorAll("[data-toast]").forEach((button) => {
+        button.addEventListener("click", () => showToast(button.dataset.toast));
+      });
+
+      document.getElementById("generateBtn").addEventListener("click", () => {
+        renderSchedule();
+        setPage("results");
+        showToast("已生成一版排班结果");
+      });
+
+      document.getElementById("employeeList").addEventListener("click", (event) => {
+        const employee = event.target.closest("[data-employee]");
+        if (!employee) return;
+        activeEmployee = Number(employee.dataset.employee);
+        renderEmployees();
+        renderAvailability();
+      });
+
+      document.getElementById("statusTabs").addEventListener("click", (event) => {
+        const button = event.target.closest("[data-status]");
+        if (!button) return;
+        activeStatus = button.dataset.status;
+        document.querySelectorAll("#statusTabs button").forEach((item) => item.classList.toggle("active", item === button));
+      });
+
+      document.getElementById("availabilityMatrix").addEventListener("click", (event) => {
+        const cell = event.target.closest("[data-cell]");
+        if (!cell) return;
+        const [label, tone] = statusMap[activeStatus];
+        cell.innerHTML = badge(label, tone);
+      });
+
+      document.getElementById("staffingMatrix").addEventListener("input", (event) => {
+        const slider = event.target.closest(".staff-slider");
+        if (!slider) return;
+        staffing[Number(slider.dataset.segment)] = Number(slider.value);
+        renderStaffing();
+        renderSchedule();
+      });
+
+      renderEmployees();
+      renderAvailability();
+      renderStaffing();
+      renderSchedule();
+    </script>
+  </body>
+</html>
