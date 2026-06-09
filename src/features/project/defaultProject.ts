@@ -29,7 +29,7 @@ const sampleStatuses: AvailabilityStatus[] = [
   "busy",
   "available",
   "dispreferred",
-  "banned",
+  "available",
 ];
 
 export function buildDefaultAvailability(employees = defaultEmployees): AvailabilityMap {
@@ -54,10 +54,10 @@ export function createDefaultProject(): ProjectState {
     staffingRules: defaultStaffingRules,
     schedulerOptions: {
       minShiftHours: 1,
-      shortageWeight: 95,
-      fairnessWeight: 72,
-      preferenceWeight: 58,
-      continuityWeight: 64,
+      shortageWeight: 90,
+      fairnessWeight: 60,
+      preferenceWeight: 60,
+      continuityWeight: 60,
     },
   };
 }

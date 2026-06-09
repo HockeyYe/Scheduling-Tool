@@ -26,15 +26,26 @@ import type { AvailabilityStatus, DayKey, ScheduleAssignment, TimeSlot } from ".
 
 const statusMeta: Record<
   AvailabilityStatus,
-  { label: string; className: "success" | "info" | "warning" | "danger"; title: string }
+  { label: string; className: "success" | "info" | "warning"; title: string }
 > = {
   available: { label: "可排", className: "success", title: "可排班" },
-  busy: { label: "忙碌", className: "info", title: "上课/忙碌" },
-  banned: { label: "Ban", className: "danger", title: "手动 ban" },
+  busy: { label: "忙碌", className: "info", title: "有课程/忙碌，不可排班" },
   dispreferred: { label: "不偏好", className: "warning", title: "不偏好但可排" },
 };
 
 type PageKey = "availability" | "rules" | "results";
+
+const weightLevels = [
+  { label: "低", value: 30 },
+  { label: "中", value: 60 },
+  { label: "高", value: 90 },
+] as const;
+
+function getClosestWeightLevel(value: number) {
+  return weightLevels.reduce((closest, level) =>
+    Math.abs(level.value - value) < Math.abs(closest.value - value) ? level : closest,
+  );
+}
 
 function Badge({
   children,
@@ -420,7 +431,7 @@ function EmployeeDetail({ activeEmployeeId }: { activeEmployeeId?: string }) {
 
   if (!employee) {
     return (
-      <aside className="panel">
+      <aside className="panel employee-detail-panel">
         <div className="panel-header">
           <h2 className="panel-title">员工详情</h2>
         </div>
@@ -430,7 +441,7 @@ function EmployeeDetail({ activeEmployeeId }: { activeEmployeeId?: string }) {
   }
 
   return (
-    <aside className="panel">
+    <aside className="panel employee-detail-panel">
       <div className="panel-header">
         <div>
           <h2 className="panel-title">员工详情</h2>
@@ -444,7 +455,7 @@ function EmployeeDetail({ activeEmployeeId }: { activeEmployeeId?: string }) {
           <Trash2 />
         </button>
       </div>
-      <div className="panel-body stack">
+      <div className="panel-body stack employee-detail-body">
         <label className="field">
           <span>姓名</span>
           <input
@@ -469,7 +480,7 @@ function EmployeeDetail({ activeEmployeeId }: { activeEmployeeId?: string }) {
           />
         </label>
         <Badge tone="info">偏好 10:00 后排班</Badge>
-        <Badge tone="warning">不偏好时段会降低算法优先级</Badge>
+        <Badge tone="warning">忙碌是课程时间，不会被排班；不偏好只会降低优先级</Badge>
         <p className="muted">点击时间格可用当前状态改色，刷新页面后数据会保留。</p>
       </div>
     </aside>
@@ -545,22 +556,22 @@ function RulesPage() {
             value={project.schedulerOptions.minShiftHours}
             onChange={(value) => project.updateSchedulerOption("minShiftHours", value)}
           />
-          <OptionSlider
+          <WeightLevelControl
             label="缺人惩罚"
             value={project.schedulerOptions.shortageWeight}
             onChange={(value) => project.updateSchedulerOption("shortageWeight", value)}
           />
-          <OptionSlider
+          <WeightLevelControl
             label="公平性"
             value={project.schedulerOptions.fairnessWeight}
             onChange={(value) => project.updateSchedulerOption("fairnessWeight", value)}
           />
-          <OptionSlider
+          <WeightLevelControl
             label="偏好冲突"
             value={project.schedulerOptions.preferenceWeight}
             onChange={(value) => project.updateSchedulerOption("preferenceWeight", value)}
           />
-          <OptionSlider
+          <WeightLevelControl
             label="连续班次"
             value={project.schedulerOptions.continuityWeight}
             onChange={(value) => project.updateSchedulerOption("continuityWeight", value)}
@@ -607,6 +618,36 @@ function OptionSlider({
         value={value}
       />
     </label>
+  );
+}
+
+function WeightLevelControl({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+}) {
+  const activeLevel = getClosestWeightLevel(value);
+
+  return (
+    <div className="option-slider">
+      <span className="muted">{label}</span>
+      <div className="weight-levels" role="group" aria-label={label}>
+        {weightLevels.map((level) => (
+          <button
+            className={level.value === activeLevel.value ? "active" : ""}
+            key={level.value}
+            onClick={() => onChange(level.value)}
+            type="button"
+          >
+            {level.label}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -796,7 +837,6 @@ function ScheduleRow({
               return (
                 <span className="person-pill" key={`${slot.id}-${assignment.employeeId}`}>
                   {employee.name}
-                  {assignment.shortShiftRisk ? <span title="短班风险">!</span> : null}
                   <span
                     className="mini-action"
                     onClick={(event) => {

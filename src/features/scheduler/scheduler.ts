@@ -151,7 +151,7 @@ export function generateSchedule(input: SchedulerInput): ScheduleResult {
         .filter((employee) => !alreadyAssigned.has(employee.id))
         .filter((employee) => {
           const status = getStatus(input, employee.id, slot.id);
-          return status !== "busy" && status !== "banned";
+          return status !== "busy";
         })
         .map((employee) => ({
           employee,
@@ -243,7 +243,6 @@ export function canAssignEmployee(
   const assignments = input.scheduleResult?.assignments ?? [];
   return (
     status !== "busy" &&
-    status !== "banned" &&
     !assignments.some(
       (assignment) => assignment.slotId === slotId && assignment.employeeId === employeeId,
     )

@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { createId } from "../../lib/ids";
-import { importProject } from "../../lib/storage";
+import { importProject, normalizeProjectState } from "../../lib/storage";
 import {
   canAssignEmployee,
   generateSchedule,
@@ -97,7 +97,7 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
             },
           },
           scheduleResult:
-            state.scheduleResult && (status === "busy" || status === "banned")
+            state.scheduleResult && status === "busy"
               ? {
                   ...state.scheduleResult,
                   assignments: state.scheduleResult.assignments.filter(
@@ -167,6 +167,10 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
     }),
     {
       name: "coffee-scheduling-tool-project",
+      merge: (persistedState, currentState) => ({
+        ...currentState,
+        ...normalizeProjectState(persistedState as ProjectState),
+      }),
       partialize: (state) => ({
         employees: state.employees,
         availability: state.availability,

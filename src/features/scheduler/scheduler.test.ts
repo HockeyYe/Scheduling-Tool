@@ -4,13 +4,13 @@ import { createDefaultProject } from "../project/defaultProject";
 import { generateSchedule } from "./scheduler";
 
 describe("generateSchedule", () => {
-  it("does not assign employees in busy or banned slots", () => {
+  it("does not assign employees in busy slots", () => {
     const project = createDefaultProject();
     const result = generateSchedule(project);
 
     for (const assignment of result.assignments) {
       const status = project.availability[assignment.employeeId]?.[assignment.slotId];
-      expect(["busy", "banned"]).not.toContain(status);
+      expect(status).not.toBe("busy");
     }
   });
 

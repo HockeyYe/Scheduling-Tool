@@ -9,6 +9,7 @@ build/
 .vite/
 *.tsbuildinfo
 node_modules/.tmp/
+.codex-tools/
 
 # Logs
 *.log

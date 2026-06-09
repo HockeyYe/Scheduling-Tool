@@ -3,7 +3,6 @@ export type DayKey = "mon" | "tue" | "wed" | "thu" | "fri";
 export type AvailabilityStatus =
   | "available"
   | "busy"
-  | "banned"
   | "dispreferred";
 
 export type Employee = {
