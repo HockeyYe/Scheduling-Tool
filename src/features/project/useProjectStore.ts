@@ -25,6 +25,11 @@ type ProjectActions = {
     slotId: string,
     status: AvailabilityStatus,
   ) => void;
+  setAvailabilityBatch: (
+    employeeId: string,
+    slotIds: string[],
+    status: AvailabilityStatus,
+  ) => void;
   updateStaffingRule: (ruleId: string, requiredCount: number) => void;
   updateSchedulerOption: <K extends keyof SchedulerOptions>(
     key: K,
@@ -107,6 +112,40 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
                 }
               : state.scheduleResult,
         }));
+        if (get().scheduleResult) set({ scheduleResult: recalculateScheduleResult(get()) });
+      },
+      setAvailabilityBatch: (employeeId, slotIds, status) => {
+        const uniqueSlotIds = Array.from(new Set(slotIds));
+        if (!uniqueSlotIds.length) return;
+
+        set((state) => {
+          const slotIdSet = new Set(uniqueSlotIds);
+          const employeeAvailability = {
+            ...(state.availability[employeeId] ?? {}),
+          };
+
+          uniqueSlotIds.forEach((slotId) => {
+            employeeAvailability[slotId] = status;
+          });
+
+          return {
+            availability: {
+              ...state.availability,
+              [employeeId]: employeeAvailability,
+            },
+            scheduleResult:
+              state.scheduleResult && status === "busy"
+                ? {
+                    ...state.scheduleResult,
+                    assignments: state.scheduleResult.assignments.filter(
+                      (assignment) =>
+                        assignment.employeeId !== employeeId ||
+                        !slotIdSet.has(assignment.slotId),
+                    ),
+                  }
+                : state.scheduleResult,
+          };
+        });
         if (get().scheduleResult) set({ scheduleResult: recalculateScheduleResult(get()) });
       },
       updateStaffingRule: (ruleId, requiredCount) => {

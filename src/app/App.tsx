@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import {
   CalendarDays,
   Download,
@@ -22,7 +22,7 @@ import {
 import { downloadJson, exportScheduleImage, exportScheduleToExcel } from "../features/exports/exports";
 import { canAssignEmployee, describeSlot } from "../features/scheduler/scheduler";
 import { useProjectStore } from "../features/project/useProjectStore";
-import type { AvailabilityStatus, DayKey, ScheduleAssignment, TimeSlot } from "../types/domain";
+import type { AvailabilityStatus, ScheduleAssignment, TimeSlot } from "../types/domain";
 
 const statusMeta: Record<
   AvailabilityStatus,
@@ -34,6 +34,12 @@ const statusMeta: Record<
 };
 
 type PageKey = "availability" | "rules" | "results";
+
+type AvailabilityCellPosition = {
+  slotId: string;
+  rowIndex: number;
+  dayIndex: number;
+};
 
 const weightLevels = [
   { label: "低", value: 30 },
@@ -64,7 +70,7 @@ function findAssignmentEmployee(assignments: ScheduleAssignment[], slotId: strin
 function App() {
   const [page, setPage] = useState<PageKey>("availability");
   const [activeEmployeeId, setActiveEmployeeId] = useState<string | undefined>();
-  const [activeStatus, setActiveStatus] = useState<AvailabilityStatus>("available");
+  const [activeStatus, setActiveStatus] = useState<AvailabilityStatus | undefined>();
   const [toast, setToast] = useState("");
   const [manualSlotId, setManualSlotId] = useState("");
   const scheduleRef = useRef<HTMLDivElement>(null);
@@ -272,14 +278,100 @@ function AvailabilityPage({
   onSetActiveStatus,
 }: {
   activeEmployeeId?: string;
-  activeStatus: AvailabilityStatus;
+  activeStatus?: AvailabilityStatus;
   slots: TimeSlot[];
   timeRows: TimeSlot[];
   onSetActiveEmployee: (id: string) => void;
-  onSetActiveStatus: (status: AvailabilityStatus) => void;
+  onSetActiveStatus: (status: AvailabilityStatus | undefined) => void;
 }) {
   const project = useProjectStore();
   const result = project.scheduleResult;
+  const editorRef = useRef<HTMLElement>(null);
+  const [selectionAnchor, setSelectionAnchor] = useState<AvailabilityCellPosition>();
+  const [selectionFocus, setSelectionFocus] = useState<AvailabilityCellPosition>();
+  const [isDraggingSelection, setIsDraggingSelection] = useState(false);
+
+  const selectedSlotIds = useMemo(() => {
+    if (!selectionAnchor || !selectionFocus) return [];
+
+    const minRow = Math.min(selectionAnchor.rowIndex, selectionFocus.rowIndex);
+    const maxRow = Math.max(selectionAnchor.rowIndex, selectionFocus.rowIndex);
+    const minDay = Math.min(selectionAnchor.dayIndex, selectionFocus.dayIndex);
+    const maxDay = Math.max(selectionAnchor.dayIndex, selectionFocus.dayIndex);
+
+    return slots
+      .filter((slot) => {
+        const rowIndex = timeRows.findIndex((timeSlot) => timeSlot.start === slot.start);
+        const dayIndex = DAYS.findIndex((day) => day.key === slot.day);
+        return rowIndex >= minRow && rowIndex <= maxRow && dayIndex >= minDay && dayIndex <= maxDay;
+      })
+      .map((slot) => slot.id);
+  }, [selectionAnchor, selectionFocus, slots, timeRows]);
+
+  const selectedSlotIdSet = useMemo(() => new Set(selectedSlotIds), [selectedSlotIds]);
+
+  const clearSelection = () => {
+    setSelectionAnchor(undefined);
+    setSelectionFocus(undefined);
+    setIsDraggingSelection(false);
+    onSetActiveStatus(undefined);
+  };
+
+  useEffect(() => {
+    clearSelection();
+  }, [activeEmployeeId]);
+
+  useEffect(() => {
+    const handleMouseUp = () => {
+      if (!isDraggingSelection) return;
+      setIsDraggingSelection(false);
+      onSetActiveStatus(undefined);
+    };
+
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => window.removeEventListener("mouseup", handleMouseUp);
+  }, [isDraggingSelection, onSetActiveStatus]);
+
+  useEffect(() => {
+    const handleMouseDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (editorRef.current?.contains(target)) return;
+      clearSelection();
+    };
+
+    document.addEventListener("mousedown", handleMouseDown);
+    return () => document.removeEventListener("mousedown", handleMouseDown);
+  }, []);
+
+  const startSelection = (position: AvailabilityCellPosition) => {
+    if (!activeEmployeeId) return;
+    setSelectionAnchor(position);
+    setSelectionFocus(position);
+    setIsDraggingSelection(true);
+    onSetActiveStatus(undefined);
+  };
+
+  const extendSelection = (position: AvailabilityCellPosition) => {
+    if (!isDraggingSelection) return;
+    setSelectionFocus(position);
+  };
+
+  const finishSelection = (position: AvailabilityCellPosition) => {
+    setSelectionFocus(position);
+    setIsDraggingSelection(false);
+    onSetActiveStatus(undefined);
+  };
+
+  const applyStatusToSelection = (status: AvailabilityStatus) => {
+    if (!activeEmployeeId || !selectedSlotIds.length) return;
+    if (activeStatus === status) {
+      onSetActiveStatus(undefined);
+      return;
+    }
+    onSetActiveStatus(status);
+    project.setAvailabilityBatch(activeEmployeeId, selectedSlotIds, status);
+  };
 
   return (
     <div className="layout-3">
@@ -327,7 +419,7 @@ function AvailabilityPage({
         </div>
       </section>
 
-      <section className="panel">
+      <section className="panel" ref={editorRef}>
         <div className="panel-header">
           <div>
             <h2 className="panel-title">可用时间录入</h2>
@@ -336,13 +428,25 @@ function AvailabilityPage({
               {project.employees.find((employee) => employee.id === activeEmployeeId)?.name ??
                 "未选择"}
             </div>
+            {selectedSlotIds.length ? (
+              <div className="availability-selection-summary">
+                已选择 {selectedSlotIds.length} 格
+              </div>
+            ) : null}
           </div>
           <div className="tabs">
             {(Object.keys(statusMeta) as AvailabilityStatus[]).map((status) => (
               <button
-                className={status === activeStatus ? "tab-button active" : "tab-button"}
+                className={[
+                  "tab-button",
+                  status === activeStatus ? "active" : "",
+                  status === activeStatus ? statusMeta[status].className : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                disabled={!activeEmployeeId || !selectedSlotIds.length}
                 key={status}
-                onClick={() => onSetActiveStatus(status)}
+                onClick={() => applyStatusToSelection(status)}
                 type="button"
               >
                 {statusMeta[status].label}
@@ -362,9 +466,13 @@ function AvailabilityPage({
               {timeRows.map((timeSlot) => (
                 <AvailabilityRow
                   activeEmployeeId={activeEmployeeId}
-                  activeStatus={activeStatus}
                   key={timeSlot.start}
+                  onExtendSelection={extendSelection}
+                  onFinishSelection={finishSelection}
+                  onStartSelection={startSelection}
+                  selectedSlotIdSet={selectedSlotIdSet}
                   slots={slots}
+                  timeRows={timeRows}
                   timeSlot={timeSlot}
                 />
               ))}
@@ -380,36 +488,51 @@ function AvailabilityPage({
 
 function AvailabilityRow({
   activeEmployeeId,
-  activeStatus,
+  onExtendSelection,
+  onFinishSelection,
+  onStartSelection,
+  selectedSlotIdSet,
   slots,
+  timeRows,
   timeSlot,
 }: {
   activeEmployeeId?: string;
-  activeStatus: AvailabilityStatus;
+  onExtendSelection: (position: AvailabilityCellPosition) => void;
+  onFinishSelection: (position: AvailabilityCellPosition) => void;
+  onStartSelection: (position: AvailabilityCellPosition) => void;
+  selectedSlotIdSet: Set<string>;
   slots: TimeSlot[];
+  timeRows: TimeSlot[];
   timeSlot: TimeSlot;
 }) {
   const availability = useProjectStore((state) => state.availability);
-  const setAvailability = useProjectStore((state) => state.setAvailability);
+  const rowIndex = timeRows.findIndex((candidate) => candidate.start === timeSlot.start);
 
   return (
     <>
       <div className="time">{timeSlot.start}</div>
-      {DAYS.map((day) => {
+      {DAYS.map((day, dayIndex) => {
         const slot = slots.find(
           (candidate) => candidate.day === day.key && candidate.start === timeSlot.start,
         )!;
         const status = activeEmployeeId
           ? availability[activeEmployeeId]?.[slot.id] ?? "available"
           : "available";
+        const position = { slotId: slot.id, rowIndex, dayIndex };
+        const isSelected = selectedSlotIdSet.has(slot.id);
         return (
           <button
-            className="cell"
+            className={isSelected ? "cell selected" : "cell"}
             disabled={!activeEmployeeId}
             key={slot.id}
-            onClick={() => {
-              if (activeEmployeeId) setAvailability(activeEmployeeId, slot.id, activeStatus);
+            onMouseDown={(event) => {
+              event.preventDefault();
+              onStartSelection(position);
             }}
+            onMouseEnter={() => {
+              onExtendSelection(position);
+            }}
+            onMouseUp={() => onFinishSelection(position)}
             type="button"
           >
             <Badge tone={statusMeta[status].className}>
@@ -479,8 +602,6 @@ function EmployeeDetail({ activeEmployeeId }: { activeEmployeeId?: string }) {
             value={employee.targetHoursPerWeek}
           />
         </label>
-        <Badge tone="info">偏好 10:00 后排班</Badge>
-        <Badge tone="warning">忙碌是课程时间，不会被排班；不偏好只会降低优先级</Badge>
         <p className="muted">点击时间格可用当前状态改色，刷新页面后数据会保留。</p>
       </div>
     </aside>

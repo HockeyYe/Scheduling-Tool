@@ -134,11 +134,40 @@ svg {
 }
 
 .nav button.active,
-.button.primary,
-.tab-button.active {
+.button.primary {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
+}
+
+.tab-button.active.success {
+  background: var(--success);
+  border-color: color-mix(in srgb, var(--success-ink) 34%, var(--success));
+  color: var(--success-ink);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--success-ink) 12%, transparent);
+}
+
+.tab-button.active.info {
+  background: var(--info);
+  border-color: color-mix(in srgb, var(--info-ink) 34%, var(--info));
+  color: var(--info-ink);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--info-ink) 12%, transparent);
+}
+
+.tab-button.active.warning {
+  background: var(--warning);
+  border-color: color-mix(in srgb, var(--warning-ink) 34%, var(--warning));
+  color: var(--warning-ink);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warning-ink) 12%, transparent);
+}
+
+.tab-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.tab-button:not(:disabled):active {
+  transform: translateY(1px);
 }
 
 .button.subtle {
@@ -390,11 +419,37 @@ svg {
   display: flex;
   align-items: center;
   justify-content: flex-start;
+  position: relative;
+  transition:
+    background 0.16s ease,
+    box-shadow 0.16s ease;
+  user-select: none;
+}
+
+.cell:not(:disabled):hover {
+  background: #f8fafc;
+  box-shadow: inset 0 0 0 2px rgba(15, 23, 42, 0.1);
+}
+
+.cell.selected {
+  background: #f0fdf4;
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.cell.selected:hover {
+  background: #ecfdf5;
 }
 
 .cell:disabled {
   cursor: not-allowed;
   opacity: 0.55;
+}
+
+.availability-selection-summary {
+  margin-top: 4px;
+  color: var(--accent);
+  font-size: calc(12px * var(--font-scale));
+  font-weight: 800;
 }
 
 .schedule-cell,
