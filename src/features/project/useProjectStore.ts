@@ -87,6 +87,9 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
           return {
             employees: state.employees.filter((employee) => employee.id !== employeeId),
             availability,
+            busyTimeBlocks: state.busyTimeBlocks?.filter(
+              (block) => block.employeeId !== employeeId,
+            ),
             scheduleResult,
           };
         });

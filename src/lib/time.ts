@@ -11,6 +11,7 @@ export const DAYS: { key: DayKey; label: string }[] = [
 export const DEFAULT_START = "08:00";
 export const DEFAULT_END = "16:30";
 export const SLOT_MINUTES = 30;
+export const COMMUTE_BUFFER_MINUTES = 15;
 
 export function timeToMinutes(time: string) {
   const [hours, minutes] = time.split(":").map(Number);
@@ -68,4 +69,13 @@ export function slotLabel(slot: TimeSlot) {
 
 export function slotHours(slotCount: number) {
   return (slotCount * SLOT_MINUTES) / 60;
+}
+
+export function rangesOverlap(
+  startMinutes: number,
+  endMinutes: number,
+  otherStartMinutes: number,
+  otherEndMinutes: number,
+) {
+  return startMinutes < otherEndMinutes && endMinutes > otherStartMinutes;
 }

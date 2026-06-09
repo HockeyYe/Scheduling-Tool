@@ -132,6 +132,7 @@ docs/
 - `TimeSlot.id` 当前格式为 `${day}-${HH:mm}`，例如 `mon-08:00`。
 - `StaffingRule` 不包含 day 字段，当前同一组时段规则应用于周一至周五所有天。
 - `AvailabilityMap` 结构是 `employeeId -> slotId -> status`。
+- `busyTimeBlocks` 是可选精确忙碌区间，结构用于后续 OCR/AI 课表导入：`employeeId + day + start + end`，可保留 `10:00-11:15` 这类非 30 分钟边界。
 - `ScheduleResult.assignments` 是扁平列表，同一时段可有多个员工。
 - 每个时间格代表 0.5 小时，工时通过排班格数计算。
 
@@ -141,6 +142,7 @@ docs/
 - 导出的项目 JSON 应包含：
   - `employees`
   - `availability`
+  - `busyTimeBlocks`（可选）
   - `staffingRules`
   - `schedulerOptions`
   - `scheduleResult`
@@ -160,6 +162,7 @@ docs/
 硬约束：
 
 - `busy` 时间不能排。
+- 员工上课/忙碌时间默认需要前后各 15 分钟通勤缓冲；排班时间格只要和 `busy` 时间格扩展后的缓冲区间发生重叠，就不能排。
 - 同一员工同一时间格不能重复排。
 - 不允许为了凑满人数强行违反硬约束。
 - 无法满足人数时必须保留已能安排的人，并记录 shortage。
@@ -202,6 +205,7 @@ React/Zustand：
 
 - 默认时间格由 `generateTimeSlots()` 统一生成，不要在多个文件里手写 85 个格子。
 - 所需人数通过 `getRequiredCount(slot, staffingRules)` 计算。
+- 通勤缓冲暂定前后各 15 分钟；例如课程/忙碌区间 `10:00-11:15` 应视为 `09:45-11:30` 不可排。映射到 30 分钟排班格时使用区间重叠判断：`slot.start < busyEndWithBuffer && slot.end > busyStartWithBuffer`。
 - 如果未来支持不同日期规则，需要先调整 `StaffingRule` 类型和所有调用方，不要只改 UI。
 
 导出：

@@ -96,6 +96,8 @@ MVP 阶段先集中在一个文件中，方便快速跑通。后续可以拆成 
 
 算法会避开 `busy` 时间；`dispreferred` 可以排，但会降低候选员工评分。
 
+排班还会为 `busy` 时间前后各预留 15 分钟通勤缓冲。判断方式不是简单四舍五入，而是检查 30 分钟排班格是否与“忙碌区间 + 缓冲”重叠；只要重叠，该格就不能排。
+
 #### `src/features/exports`
 
 导出层。
@@ -115,6 +117,8 @@ MVP 阶段先集中在一个文件中，方便快速跑通。后续可以拆成 
 #### `src/types`
 
 领域类型定义，包括 `Employee`、`AvailabilityStatus`、`TimeSlot`、`StaffingRule`、`SchedulerOptions`、`ScheduleResult` 等。
+
+其中 `busyTimeBlocks` 是可选的精确忙碌区间数据，供后续 OCR/AI 课表导入使用，可以保留 `10:00-11:15` 这类非 30 分钟边界，再由排班算法按 15 分钟缓冲判断是否可排。
 
 ## Data Flow
 
@@ -154,6 +158,16 @@ MVP 固定营业范围：
 | 10:00-12:00 | 1 |
 | 12:00-14:00 | 2 |
 | 14:00-16:30 | 1 |
+
+### Commute Buffer
+
+上课/忙碌时间默认前后各有 15 分钟通勤缓冲。由于排班表是 30 分钟粒度，系统使用区间重叠判断是否可排：
+
+```text
+slot.start < busyEndWithBuffer && slot.end > busyStartWithBuffer
+```
+
+例如课程 `10:00-11:15` 会按 `09:45-11:30` 判断不可排，因此 `09:30-10:00` 不可排，但 `09:00-09:30` 和 `11:30-12:00` 可排。
 
 ## Availability Editing
 

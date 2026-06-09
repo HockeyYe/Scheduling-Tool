@@ -1,10 +1,14 @@
 import {
   DAYS,
+  COMMUTE_BUFFER_MINUTES,
   generateTimeSlots,
   getRequiredCount,
+  rangesOverlap,
   slotHours,
+  timeToMinutes,
 } from "../../lib/time";
 import type {
+  BusyTimeBlock,
   AvailabilityStatus,
   Employee,
   EmployeeScheduleStats,
@@ -14,6 +18,12 @@ import type {
   Shortage,
   TimeSlot,
 } from "../../types/domain";
+
+type BusyWindow = {
+  day: TimeSlot["day"];
+  startMinutes: number;
+  endMinutes: number;
+};
 
 function assignedInSlot(assignments: ScheduleAssignment[], slotId: string) {
   return assignments
@@ -33,6 +43,68 @@ function getStatus(
   slotId: string,
 ): AvailabilityStatus {
   return input.availability[employeeId]?.[slotId] ?? "available";
+}
+
+function blockToBusyWindow(block: BusyTimeBlock): BusyWindow {
+  return {
+    day: block.day,
+    startMinutes: timeToMinutes(block.start) - COMMUTE_BUFFER_MINUTES,
+    endMinutes: timeToMinutes(block.end) + COMMUTE_BUFFER_MINUTES,
+  };
+}
+
+function slotToBusyWindow(slot: TimeSlot): BusyWindow {
+  return {
+    day: slot.day,
+    startMinutes: timeToMinutes(slot.start) - COMMUTE_BUFFER_MINUTES,
+    endMinutes: timeToMinutes(slot.end) + COMMUTE_BUFFER_MINUTES,
+  };
+}
+
+function slotOverlapsBusyWindow(slot: TimeSlot, window: BusyWindow) {
+  if (slot.day !== window.day) return false;
+  return rangesOverlap(
+    timeToMinutes(slot.start),
+    timeToMinutes(slot.end),
+    window.startMinutes,
+    window.endMinutes,
+  );
+}
+
+function employeeBusyWindows(
+  input: SchedulerInput,
+  slots: TimeSlot[],
+  employeeId: string,
+) {
+  const exactWindows =
+    input.busyTimeBlocks
+      ?.filter((block) => block.employeeId === employeeId)
+      .map(blockToBusyWindow) ?? [];
+  const slotWindows = slots
+    .filter((slot) => getStatus(input, employeeId, slot.id) === "busy")
+    .map(slotToBusyWindow);
+
+  return [...exactWindows, ...slotWindows];
+}
+
+function isEmployeeBlockedByBusyWindow(
+  input: SchedulerInput,
+  slots: TimeSlot[],
+  employeeId: string,
+  slot: TimeSlot,
+) {
+  return employeeBusyWindows(input, slots, employeeId).some((window) =>
+    slotOverlapsBusyWindow(slot, window),
+  );
+}
+
+function canWorkSlot(
+  input: SchedulerInput,
+  slots: TimeSlot[],
+  employeeId: string,
+  slot: TimeSlot,
+) {
+  return !isEmployeeBlockedByBusyWindow(input, slots, employeeId, slot);
 }
 
 function hasAdjacentAssignment(
@@ -149,10 +221,7 @@ export function generateSchedule(input: SchedulerInput): ScheduleResult {
       const alreadyAssigned = new Set(assignedInSlot(assignments, slot.id));
       const candidates = input.employees
         .filter((employee) => !alreadyAssigned.has(employee.id))
-        .filter((employee) => {
-          const status = getStatus(input, employee.id, slot.id);
-          return status !== "busy";
-        })
+        .filter((employee) => canWorkSlot(input, slots, employee.id, slot))
         .map((employee) => ({
           employee,
           score: scoreCandidate(input, slots, assignments, employee, slot),
@@ -204,7 +273,13 @@ export function generateSchedule(input: SchedulerInput): ScheduleResult {
 
 export function recalculateScheduleResult(input: SchedulerInput): ScheduleResult {
   const slots = generateTimeSlots();
-  const assignments = input.scheduleResult?.assignments.map((item) => ({ ...item })) ?? [];
+  const assignments =
+    input.scheduleResult?.assignments
+      .filter((assignment) => {
+        const slot = slots.find((item) => item.id === assignment.slotId);
+        return slot && canWorkSlot(input, slots, assignment.employeeId, slot);
+      })
+      .map((item) => ({ ...item })) ?? [];
   const shortages: Shortage[] = [];
 
   for (const slot of slots) {
@@ -239,10 +314,12 @@ export function canAssignEmployee(
   slotId: string,
   employeeId: string,
 ) {
-  const status = getStatus(input, employeeId, slotId);
+  const slots = generateTimeSlots();
+  const slot = slots.find((item) => item.id === slotId);
   const assignments = input.scheduleResult?.assignments ?? [];
   return (
-    status !== "busy" &&
+    !!slot &&
+    canWorkSlot(input, slots, employeeId, slot) &&
     !assignments.some(
       (assignment) => assignment.slotId === slotId && assignment.employeeId === employeeId,
     )

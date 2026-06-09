@@ -19,6 +19,16 @@ export type TimeSlot = {
   index: number;
 };
 
+export type BusyTimeBlock = {
+  id: string;
+  employeeId: string;
+  day: DayKey;
+  start: string;
+  end: string;
+  label?: string;
+  source?: "manual" | "ocr" | "import";
+};
+
 export type StaffingRule = {
   id: string;
   label: string;
@@ -69,6 +79,7 @@ export type ScheduleResult = {
 export type ProjectState = {
   employees: Employee[];
   availability: AvailabilityMap;
+  busyTimeBlocks?: BusyTimeBlock[];
   staffingRules: StaffingRule[];
   schedulerOptions: SchedulerOptions;
   scheduleResult?: ScheduleResult;
