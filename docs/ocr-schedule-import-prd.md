@@ -180,9 +180,9 @@
 本期采用强覆盖：
 
 - 覆盖当前员工所有 `busyTimeBlocks`。
-- 覆盖当前员工所有 `availability[employeeId][slotId] === "busy"` 的格子。
-- 保留当前员工 `dispreferred` 状态，除非该格被新 OCR 忙碌时间覆盖为 `busy`。
-- 保留当前员工 `available` 状态。
+- 覆盖当前员工所有 `availability[employeeId]` 时间格。
+- 当前员工原有 `busy`、`dispreferred` 都重置为 `available`。
+- 其他员工的可用时间状态不受影响。
 - 覆盖后，新 OCR 课程影响到的格子统一设置为 `busy`。
 
 解释：
@@ -296,7 +296,7 @@ replaceEmployeeBusyTimeFromOcr: (
 行为：
 
 - 删除该员工现有 `busyTimeBlocks`。
-- 删除或清空该员工现有 `availability` 中所有 `busy` 状态。
+- 将该员工现有 `availability` 时间格全部重置为 `available`。
 - 为 OCR blocks 创建新的 `busyTimeBlocks`，`source: "ocr"`。
 - 根据缓冲重叠规则计算受影响 slotIds。
 - 将这些 slotIds 设置为 `busy`。
@@ -306,7 +306,7 @@ replaceEmployeeBusyTimeFromOcr: (
 注意：
 
 - 本 action 不应影响其他员工。
-- 本 action 不应改变 `dispreferred`，除非被新 OCR busy 覆盖。
+- 本 action 会清空当前员工旧的 `dispreferred`，将其重置为 `available`。
 - 本 action 不应自动生成新的排班。
 
 ## 8. 技术架构
@@ -605,7 +605,7 @@ src/styles/globals.css
 
 建议优先补 store 和纯函数测试：
 
-- OCR blocks 覆盖当前员工所有旧 busy。
+- OCR blocks 覆盖当前员工所有旧 busy 和 dispreferred。
 - OCR blocks 不影响其他员工。
 - OCR blocks 按 15 分钟缓冲映射到 busy slot。
 - 已有排班中，员工在新 busy slot 的 assignment 被移除。
@@ -633,7 +633,7 @@ src/styles/globals.css
 ### 14.2 覆盖逻辑
 
 - 原手动标记为 busy 的格子，如果不在新 OCR 结果中，会恢复为 available。
-- 原 dispreferred 格子，如果不在新 OCR 结果中，保持 dispreferred。
+- 原 dispreferred 格子，如果不在新 OCR 结果中，会恢复为 available。
 - 新 OCR 结果影响的格子统一变为 busy。
 - OCR 课程原始时间不是 30 分钟边界时，仍按 15 分钟缓冲和重叠规则正确映射。
 

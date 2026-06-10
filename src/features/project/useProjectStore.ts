@@ -187,15 +187,10 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
         }));
 
         set((state) => {
-          const employeeAvailability = {
-            ...(state.availability[employeeId] ?? {}),
-          };
+          const employeeAvailability = Object.fromEntries(
+            slots.map((slot) => [slot.id, "available" as AvailabilityStatus]),
+          );
 
-          slots.forEach((slot) => {
-            if (employeeAvailability[slot.id] === "busy") {
-              employeeAvailability[slot.id] = "available";
-            }
-          });
           busySlotIds.forEach((slotId) => {
             employeeAvailability[slotId] = "busy";
           });
