@@ -1,19 +1,15 @@
 import { generateTimeSlots } from "../../lib/time";
 import type {
   AvailabilityMap,
-  AvailabilityStatus,
   Employee,
   ProjectState,
   StaffingRule,
 } from "../../types/domain";
 
 export const defaultEmployees: Employee[] = [
-  { id: "emp_lin", name: "林小满", targetHoursPerWeek: 12 },
-  { id: "emp_zhou", name: "周予安", targetHoursPerWeek: 12 },
-  { id: "emp_chen", name: "陈一诺", targetHoursPerWeek: 10 },
-  { id: "emp_xu", name: "许知夏", targetHoursPerWeek: 8 },
-  { id: "emp_shen", name: "沈嘉禾", targetHoursPerWeek: 10 },
-  { id: "emp_gu", name: "顾南星", targetHoursPerWeek: 8 },
+  { id: "emp_1", name: "新员工1", targetHoursPerWeek: 8 },
+  { id: "emp_2", name: "新员工2", targetHoursPerWeek: 8 },
+  { id: "emp_3", name: "新员工3", targetHoursPerWeek: 8 },
 ];
 
 export const defaultStaffingRules: StaffingRule[] = [
@@ -23,25 +19,13 @@ export const defaultStaffingRules: StaffingRule[] = [
   { id: "rule_afternoon", label: "下午常规", start: "14:00", end: "16:30", requiredCount: 1 },
 ];
 
-const sampleStatuses: AvailabilityStatus[] = [
-  "available",
-  "available",
-  "busy",
-  "available",
-  "dispreferred",
-  "available",
-];
-
 export function buildDefaultAvailability(employees = defaultEmployees): AvailabilityMap {
   const slots = generateTimeSlots();
   return Object.fromEntries(
-    employees.map((employee, employeeIndex) => [
+    employees.map((employee) => [
       employee.id,
       Object.fromEntries(
-        slots.map((slot) => [
-          slot.id,
-          sampleStatuses[(slot.index + employeeIndex + slot.day.length) % sampleStatuses.length],
-        ]),
+        slots.map((slot) => [slot.id, "available"]),
       ),
     ]),
   );

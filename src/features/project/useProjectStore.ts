@@ -66,7 +66,7 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
       addEmployee: () => {
         const next: Employee = {
           id: createId("emp"),
-          name: `新员工 ${get().employees.length + 1}`,
+          name: `新员工${get().employees.length + 1}`,
           targetHoursPerWeek: 8,
         };
         set((state) => ({
