@@ -59,6 +59,22 @@ type ProjectActions = {
   loadProjectJson: (json: string) => void;
 };
 
+const legacyDefaultEmployeeIds = new Set([
+  "emp_lin",
+  "emp_zhou",
+  "emp_chen",
+  "emp_xu",
+  "emp_shen",
+  "emp_gu",
+]);
+
+function isLegacyDefaultProjectState(state: ProjectState) {
+  return (
+    state.employees.length === legacyDefaultEmployeeIds.size &&
+    state.employees.every((employee) => legacyDefaultEmployeeIds.has(employee.id))
+  );
+}
+
 export const useProjectStore = create<ProjectState & ProjectActions>()(
   persist(
     (set, get) => ({
@@ -279,10 +295,15 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
     }),
     {
       name: "coffee-scheduling-tool-project",
-      merge: (persistedState, currentState) => ({
-        ...currentState,
-        ...normalizeProjectState(persistedState as ProjectState),
-      }),
+      merge: (persistedState, currentState) => {
+        const normalizedState = normalizeProjectState(persistedState as ProjectState);
+        return {
+          ...currentState,
+          ...(isLegacyDefaultProjectState(normalizedState)
+            ? createDefaultProject()
+            : normalizedState),
+        };
+      },
       partialize: (state) => ({
         employees: state.employees,
         availability: state.availability,
