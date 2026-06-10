@@ -6,6 +6,7 @@ import {
   FileUp,
   Plus,
   RefreshCcw,
+  ScanText,
   Trash2,
   UserPlus,
   Wand2,
@@ -15,11 +16,17 @@ import { exportProject } from "../lib/storage";
 import {
   DAYS,
   generateTimeSlots,
+  getBusySlotIdsFromBlocks,
   getRequiredCount,
   getSlotsForDay,
   slotLabel,
 } from "../lib/time";
 import { downloadJson, exportScheduleImage, exportScheduleToExcel } from "../features/exports/exports";
+import {
+  OCR_IMAGE_ACCEPT,
+  importScheduleImage,
+  validateOcrImage,
+} from "../features/ocr/ocrClient";
 import { canAssignEmployee, describeSlot } from "../features/scheduler/scheduler";
 import { useProjectStore } from "../features/project/useProjectStore";
 import type { AvailabilityStatus, ScheduleAssignment, TimeSlot } from "../types/domain";
@@ -128,6 +135,7 @@ function App() {
   const projectForExport = {
     employees: project.employees,
     availability: project.availability,
+    busyTimeBlocks: project.busyTimeBlocks,
     staffingRules: project.staffingRules,
     schedulerOptions: project.schedulerOptions,
     scheduleResult: project.scheduleResult,
@@ -241,6 +249,7 @@ function App() {
               timeRows={timeRows}
               onSetActiveEmployee={(id) => setActiveEmployeeId(id)}
               onSetActiveStatus={setActiveStatus}
+              onNotify={showToast}
             />
           )}
           {page === "rules" && <RulesPage />}
@@ -276,6 +285,7 @@ function AvailabilityPage({
   timeRows,
   onSetActiveEmployee,
   onSetActiveStatus,
+  onNotify,
 }: {
   activeEmployeeId?: string;
   activeStatus?: AvailabilityStatus;
@@ -283,6 +293,7 @@ function AvailabilityPage({
   timeRows: TimeSlot[];
   onSetActiveEmployee: (id: string) => void;
   onSetActiveStatus: (status: AvailabilityStatus | undefined) => void;
+  onNotify: (message: string) => void;
 }) {
   const project = useProjectStore();
   const result = project.scheduleResult;
@@ -290,6 +301,8 @@ function AvailabilityPage({
   const [selectionAnchor, setSelectionAnchor] = useState<AvailabilityCellPosition>();
   const [selectionFocus, setSelectionFocus] = useState<AvailabilityCellPosition>();
   const [isDraggingSelection, setIsDraggingSelection] = useState(false);
+  const [isOcrDialogOpen, setIsOcrDialogOpen] = useState(false);
+  const activeEmployee = project.employees.find((employee) => employee.id === activeEmployeeId);
 
   const selectedSlotIds = useMemo(() => {
     if (!selectionAnchor || !selectionFocus) return [];
@@ -373,9 +386,32 @@ function AvailabilityPage({
     project.setAvailabilityBatch(activeEmployeeId, selectedSlotIds, status);
   };
 
+  const handleOcrImport = async (file: File) => {
+    if (!activeEmployeeId || !activeEmployee) return;
+    const response = await importScheduleImage(file);
+    project.replaceEmployeeBusyTimeFromOcr(activeEmployeeId, response.blocks);
+
+    const affectedSlotCount = getBusySlotIdsFromBlocks(response.blocks).length;
+    const ignoredText = response.ignoredBlocks.length
+      ? `，另有 ${response.ignoredBlocks.length} 段未写入`
+      : "";
+
+    if (response.confidence.level === "low" || response.confidence.level === "unknown") {
+      onNotify(
+        `识别结果置信度较低，已为「${activeEmployee.name}」覆盖 ${affectedSlotCount} 个忙碌格，请复查`,
+      );
+      return;
+    }
+
+    onNotify(
+      `已为「${activeEmployee.name}」覆盖忙碌时间：${response.blocks.length} 段课程，${affectedSlotCount} 个排班格${ignoredText}`,
+    );
+  };
+
   return (
-    <div className="layout-3">
-      <section className="panel">
+    <>
+      <div className="layout-3">
+        <section className="panel">
         <div className="panel-header">
           <div>
             <h2 className="panel-title">员工列表</h2>
@@ -419,7 +455,7 @@ function AvailabilityPage({
         </div>
       </section>
 
-      <section className="panel" ref={editorRef}>
+        <section className="panel" ref={editorRef}>
         <div className="panel-header">
           <div>
             <h2 className="panel-title">可用时间录入</h2>
@@ -434,24 +470,35 @@ function AvailabilityPage({
               </div>
             ) : null}
           </div>
-          <div className="tabs">
-            {(Object.keys(statusMeta) as AvailabilityStatus[]).map((status) => (
-              <button
-                className={[
-                  "tab-button",
-                  status === activeStatus ? "active" : "",
-                  status === activeStatus ? statusMeta[status].className : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                disabled={!activeEmployeeId || !selectedSlotIds.length}
-                key={status}
-                onClick={() => applyStatusToSelection(status)}
-                type="button"
-              >
-                {statusMeta[status].label}
-              </button>
-            ))}
+          <div className="availability-tools">
+            <button
+              className="button"
+              disabled={!activeEmployeeId}
+              onClick={() => setIsOcrDialogOpen(true)}
+              type="button"
+            >
+              <ScanText />
+              识别课表
+            </button>
+            <div className="tabs">
+              {(Object.keys(statusMeta) as AvailabilityStatus[]).map((status) => (
+                <button
+                  className={[
+                    "tab-button",
+                    status === activeStatus ? "active" : "",
+                    status === activeStatus ? statusMeta[status].className : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  disabled={!activeEmployeeId || !selectedSlotIds.length}
+                  key={status}
+                  onClick={() => applyStatusToSelection(status)}
+                  type="button"
+                >
+                  {statusMeta[status].label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
         <div className="panel-body">
@@ -479,9 +526,158 @@ function AvailabilityPage({
             </div>
           </div>
         </div>
-      </section>
+        </section>
 
-      <EmployeeDetail activeEmployeeId={activeEmployeeId} />
+        <EmployeeDetail activeEmployeeId={activeEmployeeId} />
+      </div>
+      <OcrImportDialog
+        employeeName={activeEmployee?.name}
+        isOpen={isOcrDialogOpen}
+        onClose={() => setIsOcrDialogOpen(false)}
+        onImport={handleOcrImport}
+      />
+    </>
+  );
+}
+
+function OcrImportDialog({
+  employeeName,
+  isOpen,
+  onClose,
+  onImport,
+}: {
+  employeeName?: string;
+  isOpen: boolean;
+  onClose: () => void;
+  onImport: (file: File) => Promise<void>;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [file, setFile] = useState<File>();
+  const [error, setError] = useState("");
+  const [isDragging, setIsDragging] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setFile(undefined);
+      setError("");
+      setIsDragging(false);
+      setIsSubmitting(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const selectFile = (nextFile?: File) => {
+    if (!nextFile) return;
+    const validationError = validateOcrImage(nextFile);
+    setFile(validationError ? undefined : nextFile);
+    setError(validationError ?? "");
+  };
+
+  const handleSubmit = async () => {
+    if (!file || isSubmitting) return;
+    setIsSubmitting(true);
+    setError("");
+    try {
+      await onImport(file);
+      onClose();
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "课表识别失败，请稍后重试。");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="ocr-title">
+        <div className="modal-header">
+          <div>
+            <h2 className="panel-title" id="ocr-title">
+              识别课表
+            </h2>
+            <div className="muted">当前员工：{employeeName ?? "未选择"}</div>
+          </div>
+          <button
+            className="icon-button"
+            disabled={isSubmitting}
+            onClick={onClose}
+            type="button"
+          >
+            <X />
+          </button>
+        </div>
+
+        <div className="modal-body stack">
+          <input
+            ref={inputRef}
+            hidden
+            type="file"
+            accept={OCR_IMAGE_ACCEPT}
+            onChange={(event) => selectFile(event.target.files?.[0])}
+          />
+          <button
+            className={[
+              "upload-zone",
+              isDragging ? "dragging" : "",
+              file ? "has-file" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            disabled={isSubmitting}
+            onClick={() => inputRef.current?.click()}
+            onDragEnter={(event) => {
+              event.preventDefault();
+              setIsDragging(true);
+            }}
+            onDragOver={(event) => {
+              event.preventDefault();
+              setIsDragging(true);
+            }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={(event) => {
+              event.preventDefault();
+              setIsDragging(false);
+              selectFile(event.dataTransfer.files[0]);
+            }}
+            type="button"
+          >
+            <ScanText />
+            <strong>{file ? file.name : "选择或拖入课表图片"}</strong>
+            <span className="muted">PNG / JPG / JPEG / BMP，8MB 内</span>
+          </button>
+
+          <div className="notice warning">
+            识别完成后会覆盖该员工当前所有忙碌时间，包括手动标记的忙碌时间。
+          </div>
+
+          {isSubmitting ? (
+            <div className="ocr-progress">
+              <span>正在读取图片并整理课程时间...</span>
+              <span className="muted">这一步会通过 Cloudflare 后端调用 GLM-4.6V-Flash。</span>
+            </div>
+          ) : null}
+
+          {error ? <div className="notice danger">{error}</div> : null}
+        </div>
+
+        <div className="modal-actions">
+          <button className="button" disabled={isSubmitting} onClick={onClose} type="button">
+            取消
+          </button>
+          <button
+            className="button primary"
+            disabled={!file || isSubmitting}
+            onClick={handleSubmit}
+            type="button"
+          >
+            <ScanText />
+            {isSubmitting ? "识别中" : "开始识别"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -86,3 +86,26 @@ export type ProjectState = {
 };
 
 export type SchedulerInput = ProjectState;
+
+export type OcrScheduleBlock = {
+  day: DayKey;
+  start: string;
+  end: string;
+};
+
+export type OcrIgnoredBlock = {
+  reason: "weekend" | "out_of_range" | "invalid_time" | "uncertain";
+  rawText?: string;
+};
+
+export type OcrConfidence = {
+  level: "normal" | "low" | "unknown";
+  notes?: string[];
+};
+
+export type OcrScheduleImportResponse = {
+  blocks: OcrScheduleBlock[];
+  ignoredBlocks: OcrIgnoredBlock[];
+  confidence: OcrConfidence;
+  rawText?: string;
+};

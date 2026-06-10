@@ -80,8 +80,17 @@ function employeeBusyWindows(
     input.busyTimeBlocks
       ?.filter((block) => block.employeeId === employeeId)
       .map(blockToBusyWindow) ?? [];
+  const exactBlockedSlotIds = new Set(
+    slots
+      .filter((slot) => exactWindows.some((window) => slotOverlapsBusyWindow(slot, window)))
+      .map((slot) => slot.id),
+  );
   const slotWindows = slots
-    .filter((slot) => getStatus(input, employeeId, slot.id) === "busy")
+    .filter(
+      (slot) =>
+        getStatus(input, employeeId, slot.id) === "busy" &&
+        !exactBlockedSlotIds.has(slot.id),
+    )
     .map(slotToBusyWindow);
 
   return [...exactWindows, ...slotWindows];

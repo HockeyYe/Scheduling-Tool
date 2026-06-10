@@ -63,6 +63,35 @@ describe("generateSchedule", () => {
     expect(canAssignEmployee(project, "mon-11:30", employee.id)).toBe(true);
   });
 
+  it("does not double-apply commute buffers to slots derived from exact busy blocks", () => {
+    const project = createDefaultProject();
+    const employee = project.employees[0];
+    const slots = generateTimeSlots();
+    project.employees = [employee];
+    project.availability = {
+      [employee.id]: Object.fromEntries(slots.map((slot) => [slot.id, "available"])),
+    };
+    project.busyTimeBlocks = [
+      {
+        id: "block_ocr_course",
+        employeeId: employee.id,
+        day: "mon",
+        start: "10:00",
+        end: "11:15",
+        source: "ocr",
+      },
+    ];
+
+    for (const slotId of ["mon-09:30", "mon-10:00", "mon-10:30", "mon-11:00"]) {
+      project.availability[employee.id][slotId] = "busy";
+    }
+
+    expect(canAssignEmployee(project, "mon-09:00", employee.id)).toBe(true);
+    expect(canAssignEmployee(project, "mon-09:30", employee.id)).toBe(false);
+    expect(canAssignEmployee(project, "mon-11:00", employee.id)).toBe(false);
+    expect(canAssignEmployee(project, "mon-11:30", employee.id)).toBe(true);
+  });
+
   it("reports shortages when every employee is unavailable", () => {
     const project = createDefaultProject();
     const slots = generateTimeSlots();

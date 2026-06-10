@@ -3,6 +3,12 @@ import { persist } from "zustand/middleware";
 import { createId } from "../../lib/ids";
 import { importProject, normalizeProjectState } from "../../lib/storage";
 import {
+  blockOverlapsScheduleRange,
+  generateTimeSlots,
+  getBusySlotIdsFromBlocks,
+  isValidTimeRange,
+} from "../../lib/time";
+import {
   canAssignEmployee,
   generateSchedule,
   recalculateScheduleResult,
@@ -10,7 +16,9 @@ import {
 import { buildDefaultAvailability, createDefaultProject } from "./defaultProject";
 import type {
   AvailabilityStatus,
+  BusyTimeBlock,
   Employee,
+  OcrScheduleBlock,
   ProjectState,
   SchedulerOptions,
   StaffingRule,
@@ -29,6 +37,10 @@ type ProjectActions = {
     employeeId: string,
     slotIds: string[],
     status: AvailabilityStatus,
+  ) => void;
+  replaceEmployeeBusyTimeFromOcr: (
+    employeeId: string,
+    blocks: OcrScheduleBlock[],
   ) => void;
   updateStaffingRule: (ruleId: string, requiredCount: number) => void;
   updateSchedulerOption: <K extends keyof SchedulerOptions>(
@@ -151,6 +163,69 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
         });
         if (get().scheduleResult) set({ scheduleResult: recalculateScheduleResult(get()) });
       },
+      replaceEmployeeBusyTimeFromOcr: (employeeId, blocks) => {
+        const slots = generateTimeSlots();
+        const uniqueBlocks = Array.from(
+          new Map(
+            blocks
+              .filter((block) => isValidTimeRange(block.start, block.end))
+              .filter((block) => blockOverlapsScheduleRange(block, slots))
+              .map((block) => [`${block.day}-${block.start}-${block.end}`, block]),
+          ).values(),
+        );
+        if (!uniqueBlocks.length) return;
+
+        const busySlotIds = getBusySlotIdsFromBlocks(uniqueBlocks, slots);
+        const busySlotIdSet = new Set(busySlotIds);
+        const busyTimeBlocks: BusyTimeBlock[] = uniqueBlocks.map((block) => ({
+          id: createId("busy_ocr"),
+          employeeId,
+          day: block.day,
+          start: block.start,
+          end: block.end,
+          source: "ocr",
+        }));
+
+        set((state) => {
+          const employeeAvailability = {
+            ...(state.availability[employeeId] ?? {}),
+          };
+
+          slots.forEach((slot) => {
+            if (employeeAvailability[slot.id] === "busy") {
+              employeeAvailability[slot.id] = "available";
+            }
+          });
+          busySlotIds.forEach((slotId) => {
+            employeeAvailability[slotId] = "busy";
+          });
+
+          return {
+            availability: {
+              ...state.availability,
+              [employeeId]: employeeAvailability,
+            },
+            busyTimeBlocks: [
+              ...(state.busyTimeBlocks ?? []).filter(
+                (block) => block.employeeId !== employeeId,
+              ),
+              ...busyTimeBlocks,
+            ],
+            scheduleResult: state.scheduleResult
+              ? {
+                  ...state.scheduleResult,
+                  assignments: state.scheduleResult.assignments.filter(
+                    (assignment) =>
+                      assignment.employeeId !== employeeId ||
+                      !busySlotIdSet.has(assignment.slotId),
+                  ),
+                }
+              : state.scheduleResult,
+          };
+        });
+
+        if (get().scheduleResult) set({ scheduleResult: recalculateScheduleResult(get()) });
+      },
       updateStaffingRule: (ruleId, requiredCount) => {
         set((state) => ({
           staffingRules: state.staffingRules.map((rule) =>
@@ -216,6 +291,7 @@ export const useProjectStore = create<ProjectState & ProjectActions>()(
       partialize: (state) => ({
         employees: state.employees,
         availability: state.availability,
+        busyTimeBlocks: state.busyTimeBlocks,
         staffingRules: state.staffingRules,
         schedulerOptions: state.schedulerOptions,
         scheduleResult: state.scheduleResult,

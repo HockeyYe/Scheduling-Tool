@@ -1,4 +1,4 @@
-import type { DayKey, StaffingRule, TimeSlot } from "../types/domain";
+import type { BusyTimeBlock, DayKey, OcrScheduleBlock, StaffingRule, TimeSlot } from "../types/domain";
 
 export const DAYS: { key: DayKey; label: string }[] = [
   { key: "mon", label: "周一" },
@@ -78,4 +78,40 @@ export function rangesOverlap(
   otherEndMinutes: number,
 ) {
   return startMinutes < otherEndMinutes && endMinutes > otherStartMinutes;
+}
+
+export function isValidTimeString(value: unknown) {
+  if (typeof value !== "string" || !/^\d{2}:\d{2}$/.test(value)) return false;
+  const [hours, minutes] = value.split(":").map(Number);
+  return hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59;
+}
+
+export function isValidTimeRange(start: string, end: string) {
+  return isValidTimeString(start) && isValidTimeString(end) && timeToMinutes(start) < timeToMinutes(end);
+}
+
+export function getBusySlotIdsFromBlocks(
+  blocks: Array<Pick<BusyTimeBlock | OcrScheduleBlock, "day" | "start" | "end">>,
+  slots = generateTimeSlots(),
+) {
+  return slots
+    .filter((slot) =>
+      blocks.some((block) => {
+        if (slot.day !== block.day || !isValidTimeRange(block.start, block.end)) return false;
+        return rangesOverlap(
+          timeToMinutes(slot.start),
+          timeToMinutes(slot.end),
+          timeToMinutes(block.start) - COMMUTE_BUFFER_MINUTES,
+          timeToMinutes(block.end) + COMMUTE_BUFFER_MINUTES,
+        );
+      }),
+    )
+    .map((slot) => slot.id);
+}
+
+export function blockOverlapsScheduleRange(
+  block: Pick<BusyTimeBlock | OcrScheduleBlock, "day" | "start" | "end">,
+  slots = generateTimeSlots(),
+) {
+  return getBusySlotIdsFromBlocks([block], slots).length > 0;
 }

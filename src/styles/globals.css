@@ -166,6 +166,12 @@ svg {
   opacity: 0.48;
 }
 
+.button:disabled,
+.icon-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .tab-button:not(:disabled):active {
   transform: translateY(1px);
 }
@@ -231,11 +237,16 @@ svg {
 .topbar-meta,
 .actions,
 .row,
-.tabs {
+.tabs,
+.availability-tools {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.availability-tools {
+  justify-content: flex-end;
 }
 
 .between {
@@ -450,6 +461,106 @@ svg {
   color: var(--accent);
   font-size: calc(12px * var(--font-scale));
   font-weight: 800;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 22px;
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.modal {
+  width: min(520px, 100%);
+  max-height: min(680px, calc(100vh - 44px));
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.modal-header,
+.modal-actions {
+  padding: var(--panel-padding);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.modal-header {
+  border-bottom: 1px solid var(--line);
+}
+
+.modal-body {
+  padding: var(--panel-padding);
+}
+
+.modal-actions {
+  border-top: 1px solid var(--line);
+  justify-content: flex-end;
+}
+
+.upload-zone {
+  width: 100%;
+  min-height: 148px;
+  border: 1px dashed color-mix(in srgb, var(--accent) 45%, var(--line));
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+  color: var(--ink);
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  padding: 18px;
+  text-align: center;
+}
+
+.upload-zone svg {
+  width: 24px;
+  height: 24px;
+}
+
+.upload-zone.dragging,
+.upload-zone.has-file {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.upload-zone strong {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.notice,
+.ocr-progress {
+  border: 1px solid var(--line);
+  border-radius: var(--button-radius);
+  padding: 10px 12px;
+  background: var(--surface-soft);
+  font-size: calc(12px * var(--font-scale));
+  line-height: 1.5;
+}
+
+.notice.warning {
+  border-color: color-mix(in srgb, var(--warning-ink) 24%, var(--warning));
+  background: var(--warning);
+  color: var(--warning-ink);
+}
+
+.notice.danger {
+  border-color: color-mix(in srgb, var(--danger-ink) 24%, var(--danger));
+  background: var(--danger);
+  color: var(--danger-ink);
+}
+
+.ocr-progress {
+  display: grid;
+  gap: 4px;
 }
 
 .schedule-cell,
