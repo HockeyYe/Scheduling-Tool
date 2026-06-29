@@ -656,7 +656,7 @@ function OcrImportDialog({
           {isSubmitting ? (
             <div className="ocr-progress">
               <span>正在读取图片并整理课程时间...</span>
-              <span className="muted">这一步会通过 Cloudflare 后端调用 GLM-4.6V-Flash。</span>
+              <span className="muted">这一步会通过 Cloudflare 后端调用 GLM多模态模型。</span>
             </div>
           ) : null}
 
